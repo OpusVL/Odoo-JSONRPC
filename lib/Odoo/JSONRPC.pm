@@ -193,8 +193,6 @@ sub login {
 
     my $tx = $self->ua->post($self->_url('/web/session/authenticate') => $json_data);
 
-    use Data::Dump; dd $tx;
-
     my $obj = $self->_handle_response(
         $tx->result->json,
         context => "login"
