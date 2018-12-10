@@ -1,4 +1,4 @@
-use Test::Most;
+use Test::Most 'no_plan';
 
 use lib::relative 'lib';
 
@@ -14,3 +14,5 @@ throws_ok { $odoo->login('testdb', 'testuser', 'testpass') }
     'failure::odoo::jsonrpc::invalid_credentials', "Bad login throws";
 lives_ok { $odoo->login('testdb', 'admin', 'admin') }
     "Correct login works";
+
+done_testing;

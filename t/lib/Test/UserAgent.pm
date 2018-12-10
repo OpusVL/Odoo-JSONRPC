@@ -35,6 +35,16 @@ sub fake_post_response {
                 }
             }
         }
+        elsif ($url =~ m{/web/dataset/call_kw}) {
+            return {
+                id => 0,
+                jsonrpc => "2.0",
+                result => [
+                    { id => 3, name => "CC.AX.DNA SO003" },
+                    { id => 5, name => "CC.AX.DNA SO005" },
+                ]
+            }
+        }
         else {
             #return fake error
             return {
@@ -45,16 +55,6 @@ sub fake_post_response {
                     name => "",
                     username => ''
                 }
-            }
-        }
-        elsif ($url =~ m{/web/dataset/call_kw}) {
-            return {
-                id => 0,
-                jsonrpc => "2.0",
-                result => [
-                    { id => 3, name => "CC.AX.DNA SO003" },
-                    { id => 5, name => "CC.AX.DNA SO005" },
-                ]
             }
         }
     }
