@@ -145,6 +145,17 @@ has user => (
     writer => '_user',
 );
 
+our %UNIVERSAL_FIELDS = (
+    context => {
+        optional => 1,
+        default => sub {+{}}
+    },
+    fields => {
+        optional => 1,
+        default => sub {[]}
+    }
+);
+
 =head2 connect
 
 Takes a string. Simplifies L<new> by pulling apart a URI containing scheme,
@@ -212,6 +223,37 @@ sub login {
     }
 }
 
+=head2 fetch_user_fields
+
+Gets the named fields from the current user and adds them to the hashref. Odoo
+does not return a complete user object when we log in, so you can use this to
+retrieve missing fields.
+
+Returns the user hashref.
+
+=cut
+
+sub fetch_user_fields {
+    my $self = shift;
+    state $V = validation_for(
+        params => {
+            fields => 1
+        }
+    );
+
+    my %args = $V->(@_);
+
+    my $u = $self->read(
+        model => 'res.users',
+        ids => [ $self->user->{uid} ],
+        fields => $args{fields}
+    )->[0];
+
+    $self->user->{@{$args{fields}}} = $u->{@{$args{fields}}};
+
+    return $self->user;
+}
+
 =head2 read
 
 Takes named parameters C<model>, C<ids>, C<fields>. C<fields> is an optional
@@ -229,7 +271,7 @@ sub read {
         params => {
             model => 1,
             ids => 1,
-            fields => 0
+            %UNIVERSAL_FIELDS
         }
     );
 
@@ -244,15 +286,85 @@ sub read {
     );
 }
 
+=head2 search
+
+Takes named parameters C<model> and C<domain>, both required, and C<limit> and
+C<sort>, which aren't. C<limit> defaults to 80 but C<sort>'s default is handled
+by Odoo.
+
+Executes a search against C<model> and returns the results as a list.
+
+=cut
+
+sub search {
+    my $self = shift;
+    state $V = validation_for(
+        params => {
+            model => 1,
+            domain => 1,
+            limit => {
+                optional => 1,
+                default => 80
+            },
+            sort => {
+                optional => 1,
+                default => ''
+            },
+            %UNIVERSAL_FIELDS
+        }
+    );
+
+    my %args = $V->(@_);
+
+    my $res = $self->search_read(%args, limit => 1, fields => [ 'id', 'login' ]);
+
+    return @{ $res->{records} };
+}
+
+=head2 find
+
+Returns exactly zero or one result. Works the same as L</search>, except C<sort>
+and C<limit> are meaningless here.
+
+Issues a standard Perl warning if the domain returned more than one result,
+which technically means you can pass C<< limit => 1 >> if you really want to
+silence that, but generally it is advised to pass in a better search domain.
+
+=cut
+
+sub find {
+    my $self = shift;
+    # let search validate this
+    my %args = @_;
+    my @res = $self->search(%args);
+
+    if (@res > 1) {
+        warn "Find on $args{model} returned more than one result"
+    }
+
+    return $res[0];
+}
+
+=head1 ODOO CALLS
+
+These can be called as methods but you should probably know what you're doing.
+There may be a cleaner interface for public consumption.
+
+Caveat computator.
+
+All methods can take an optional C<context> object, which you can use if you
+know why you would want to.
+
+They can also take a C<fields> key, which is an arrayref of fields to be
+returned in the output object(s). If omitted, all fields are returned. This can
+be nasty if one of those fields is binary file data for some reason.
+
 =head2 call_kw
 
 Takes named parameters C<model>, C<method>, C<args>, and C<kwargs>.
 
 Executes a C<call_kw> request, with variable data. Sets sensible defaults on the
 RPC object.
-
-You probably already know what arguments you want to put in C<%args>, or else
-you should probably use a more friendly interface.
 
 Returns the result of the JSONRPC request, not necessarily the salient data
 within it.
@@ -269,6 +381,51 @@ sub call_kw {
             kwargs => {
                 optional => 1,
                 default => sub {+{}}
+            },
+        }
+    );
+
+    my %args = $V->(@_);
+
+    my $json = $self->rpc_client->call_named(
+        'call', %args
+    );
+
+    my $ua_res = $self->ua->post($self->_url('/web/dataset/call_kw') => $json);
+
+    $self->_handle_response($ua_res->result->json, context => "$args{model} - $args{method}");
+}
+
+=head2 search_read
+
+Takes named parameters C<model>, C<domain>, C<limit>, C<sort>. C<limit> defaults
+to 80, and C<sort> defaults to whatever Odoo wants it to.
+
+C<domain> will be an AoA where each inner array is a search specification.
+
+=cut
+
+sub search_read {
+    my $self = shift;
+    state $V = validation_for(
+        params => {
+            model => 1,
+            domain => 1,
+            limit => {
+                optional => 1,
+                default => 80
+            },
+            sort => {
+                optional => 1,
+                default => ''
+            },
+            context => {
+                optional => 1,
+                default => sub {+{}}
+            },
+            fields => {
+                optional => 1,
+                default => sub {[]}
             }
         }
     );
@@ -276,13 +433,12 @@ sub call_kw {
     my %args = $V->(@_);
 
     my $json = $self->rpc_client->call_named(
-        'call',
-        %args{qw/args kwargs model method/}
+        'call', %args
     );
 
-    my $ua_res = $self->ua->post($self->_url('/web/dataset/call_kw') => $json);
+    my $ua_res = $self->ua->post($self->_url('/web/dataset/search_read') => $json);
 
-    $self->_handle_response($ua_res->result->json, context => "$args{model} - $args{method}");
+    $self->_handle_response($ua_res->result->json, context => "search on $args{model}");
 }
 
 =head2 EXCEPTIONS
