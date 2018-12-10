@@ -34,7 +34,7 @@ our $VERSION = '1';
         port => 80,
         https => 1
     );
-    $odoo->login;
+    $odoo->login($database, $username, $password);
 
     my $data = $rpc->execute($model_name, $method, \%args);
 
