@@ -148,7 +148,9 @@ has user => (
 =head2 connect
 
 Takes a string. Simplifies L<new> by pulling apart a URI containing scheme,
-host, and optionally port, and returning a constructed object for you.
+host, and port, and returning a constructed object for you.
+
+Scheme and port are optional but a host is required, as with URIs in general.
 
 With no parameters, this is the same as L<new> with no parameters.
 
@@ -161,7 +163,7 @@ sub connect {
     my $url = shift;
 
     my ($scheme, $host, $port) =
-        $url =~ m{(?:(https?)://)(.+)(?::(\d+))};
+        $url =~ m{(?:(https?)://)?(.+)(?::(\d+)?)};
 
     $class->new(
         host => $host,
