@@ -297,6 +297,8 @@ Executes a search against C<model> and returns the results as a list.
 =cut
 
 sub search {
+    # This is a very thin wrapper around search_read, but I expect it to get
+    # thicker.
     my $self = shift;
     state $V = validation_for(
         params => {
@@ -316,7 +318,7 @@ sub search {
 
     my %args = $V->(@_);
 
-    my $res = $self->search_read(%args, limit => 1, fields => [ 'id', 'login' ]);
+    my $res = $self->search_read(%args);
 
     return @{ $res->{records} };
 }
