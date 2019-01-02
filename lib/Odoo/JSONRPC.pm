@@ -236,9 +236,10 @@ Returns the user hashref.
 sub fetch_user_fields {
     my $self = shift;
     state $V = validation_for(
+        name => __PACKAGE__ . '::fetch_user_fields',
         params => {
             fields => 1
-        }
+        },
     );
 
     my %args = $V->(@_);
@@ -268,6 +269,7 @@ results.
 sub read {
     my $self = shift;
     state $V = validation_for(
+        name => __PACKAGE__ . '::read',
         params => {
             model => 1,
             ids => 1,
@@ -301,6 +303,7 @@ sub search {
     # thicker.
     my $self = shift;
     state $V = validation_for(
+        name => __PACKAGE__ . '::search',
         params => {
             model => 1,
             domain => 1,
@@ -376,6 +379,7 @@ within it.
 sub call_kw {
     my $self = shift;
     state $V = validation_for(
+        name => __PACKAGE__ . '::call_kw',
         params => {
             model => 1,
             method => 1,
@@ -410,6 +414,7 @@ C<domain> will be an AoA where each inner array is a search specification.
 sub search_read {
     my $self = shift;
     state $V = validation_for(
+        name => __PACKAGE__ . '::search_read',
         params => {
             model => 1,
             domain => 1,
@@ -441,6 +446,43 @@ sub search_read {
     my $ua_res = $self->ua->post($self->_url('/web/dataset/search_read') => $json);
 
     $self->_handle_response($ua_res->result->json, context => "search on $args{model}");
+}
+
+=head2 get_accessible_fields
+
+Takes only C<model>.
+
+Helpfully, Odoo throws an AccessError if you try to request an object and you're
+not allowed to view one of the fields. You can circumvent it by specifying which
+fields you want, and you can use this method to find out which fields you're
+allowed to access.
+
+    my $obj = $odoo->read(
+        model => 'res.partner',
+        ids => [1],
+        fields => $odoo->get_accessible_fields( model => 'res.partner' )
+    );
+
+Returns the result as a list.
+
+=cut
+
+sub get_accessible_fields {
+    my $self = shift;
+    state $V = validation_for(
+        name => __PACKAGE__ . '::get_accessible_fields',
+        params => {
+            model => 1,
+        }
+    );
+
+    my %args = $V->(@_);
+
+    @{ $self->call_kw(
+        %args,
+        method => 'check_field_access_rights',
+        args => ['read', undef]
+    ) }
 }
 
 =head2 EXCEPTIONS
