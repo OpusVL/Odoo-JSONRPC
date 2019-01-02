@@ -388,6 +388,9 @@ sub call_kw {
                 optional => 1,
                 default => sub {+{}}
             },
+            context => {
+                optional => 1
+            },
         }
     );
 
